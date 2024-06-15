@@ -4,7 +4,7 @@ from aws_cdk import (
     aws_lambda_python_alpha as _alambda,
     aws_dynamodb as _dynamodb,
     aws_sqs as _sqs,
-    aws_lambda_event_sources as _event_sources,
+    aws_lambda_event_sources as _event_source,
 )
 from constructs import Construct
 
@@ -39,3 +39,38 @@ class ServerlessWebCrawlerStack(Stack):
         crawlerDLQ = _sqs.Queue(self, "Crawler-DLQ", queue_name="Crawler-DLQ")
 
         # Initiator
+        initiatorFunction = _alambda.PythonFunction(
+            self,
+            "InitiatorFn",
+            entry="./lambda/",
+            runtime=_lambda.Runtime.PYTHON_3_9,
+            index="initiator.py",
+            handler="handle",
+        )
+
+        # Crawler
+        crawlerFunction = _alambda.PythonFunction(
+            self,
+            "crawlerFn",
+            entry="./lambda/",
+            runtime=_lambda.Runtime.PYTHON_3_9,
+            index="crawler.py",
+            handler="handle",
+            reserved_concurrent_executions=2,
+            dead_letter_queue_enabled=True,
+            dead_letter_queue=crawlerDLQ,
+        )
+
+        # Queue read write permissions
+        crawlerQueue.grant_send_messages(initiatorFunction)
+        crawlerQueue.grant_send_messages(crawlerFunction)
+        crawlerQueue.grant_consume_messages(crawlerFunction)
+
+        # DynamoDB read write permissions
+        table.grant_read_write_data(initiatorFunction)
+        table.grant_read_write_data(crawlerFunction)
+
+        # Subscribe Crawler to SQS
+        event_source = _event_source.SqsEventSource(crawlerQueue, batch_size=1)
+
+        crawlerFunction.add_event_source(event_source)
