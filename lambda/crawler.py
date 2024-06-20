@@ -43,32 +43,50 @@ def handle(event, context):
     remainingCrawlTargets = findUnvisitedLinks(filteredDomainReferrals, visitedLinks)
     print(f"{len(remainingCrawlTargets)} need to be processed")
 
-    if (len(remainingCrawlTargets) > 0):
+    if len(remainingCrawlTargets) > 0:
         # Step 5 - Mark all links as visited (eager marking)
-        markAllVisited(remainingCrawlTargets, runId, sourceURL, rootURL) # mark them all as visited
+        markAllVisited(
+            remainingCrawlTargets, runId, sourceURL, rootURL
+        )  # mark them all as visited
         print(f"Marked {len(remainingCrawlTargets)} as visited")
 
+        # Step 6 - Enqueue them all for later processing
+        enqueueAll(
+            remainingCrawlTargets, runId, sourceURL, rootURL
+        )  # mark them all as visited
+        print(f"Completed enqueue of {len(remainingCrawlTargets)} URLs")
 
 
-
-
-def filterLinkCandidatesForRootURL(rootUrl: str, linkCandidates: list[str]):
+def filterLinkCandidatesForRootURL(rootUrl: str, linkCandidates: list[str]) -> list[str]:
     return list(
         filter(
-            lambda link: link.startswitch(rootUrl) and not ("#" in link), linkCandidates
+            lambda link: link.startswith(rootUrl) and not ("#" in link), linkCandidates
         )
     )
 
 
 def fetchLinksFromURL(link: str) -> list[str]:
     session = HTMLSession()
-    r = sessions.get(link)
+    r = session.get(link)
     print("Retrieved " + str(len(r.html.links)) + " links")
     return r.html.links
 
 
 def fetchVisitedCandidates(candidates: list[str], runId: str) -> list[str]:
     return batchGetItems(ddb, candidates, runId)
+
+
+def findUnvisitedLinks(potentialLinks, visitedLinks):
+    unvisitedLinks = set(potentialLinks).difference(visitedLinks)
+    return unvisitedLinks
+
+
+def markAllVisited(targets, runId, sourceUrl, rootUrl):
+    batchPutItems(table, targets, runId, sourceUrl, rootUrl)
+
+
+def enqueueAll(targets, runId, sourceUrl, rootUrl):
+    batchEnqueue(queue, targets, runId, sourceUrl, rootUrl)
 
 
 # handle({"Records": {

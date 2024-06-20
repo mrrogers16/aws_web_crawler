@@ -56,4 +56,10 @@ def batchEnqueue(queue, urls, runId, sourceUrl, rootUrl):
     for batch in batchedItems:
         entries = list()
         for item in batch:
-            pass
+            print("\t" + json.dumps(item))
+            entries.append({ "MessageBody": json.dumps(item), "Id": str(uuid.uuid4())})
+
+        print(f"Enqueuing batch {batchSendCount}")
+        queue.send_messages(Entries=entries)
+        batchSendCount += 1
+        
