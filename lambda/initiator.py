@@ -1,14 +1,21 @@
+from ctypes import util
+from datetime import datetime
+import uuid
+import json
 import logging
 import boto3
 
 from models.VisitedURL import VisitedURL
 from utilities.util import *
 
+
+# Set up logging
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 RUN_ID_DELIM = "#"
 
+# Create dynamoDB and SQS client
 ddb = boto3.resource("dynamodb")
 sqs = boto3.resource("sqs")
 queue = sqs.get_queue_by_name(QueueName="Crawler")
@@ -31,5 +38,11 @@ def handle(event, context):
     enqueue(queue, urlToVisit)
 
 
-"""
-Generates a runId with format date#uuid"""
+# Generates a runId with format date#uuid
+def generateRunId() -> str:
+    timestamp = datetime.fromtimestamp(datetime.timestamp(datetime.now()), tz=None)
+    id = uuid.uuid4()
+
+    runId = str(timestamp) + RUN_ID_DELIM + str(id)
+
+    return runId
