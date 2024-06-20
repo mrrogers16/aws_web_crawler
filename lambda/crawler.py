@@ -1,3 +1,4 @@
+import logging
 import boto3
 from utilities.util import *
 from requests_html import HTMLSession
